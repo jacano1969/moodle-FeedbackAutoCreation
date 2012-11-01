@@ -1,0 +1,72 @@
+--- enrol/manual/manage.php	2012-11-01 15:08:29.703065848 +0500
++++ enrol/manual/manage.php	2012-11-01 14:25:15.000000000 +0500
+@@ -130,6 +130,69 @@ if (optional_param('add', false, PARAM_B
+             }
+             $enrol_manual->enrol_user($instance, $adduser->id, $roleid, $timestart, $timeend);
+             add_to_log($course->id, 'course', 'enrol', '../enrol/users.php?id='.$course->id, $course->id); //there should be userid somewhere!
++		if($roleid==3){
++				$username=$DB->get_record("user", array("id" => $adduser->id)) ;
++				for( $i=0;$i<2;$i++){
++
++					$feedback=new stdClass();
++					$feedback->timemodified = time();
++					$feedback->id = '';
++					$feedback->course = $course->id;
++					if($i==0){
++						$feedback->name  = "First Student Feedback"."(".$username->firstname." ".$username->lastname.")";
++						$feedback->intro = "First Student Feedback";
++						$feedback->timeopen = strtotime("+42 days", $courserecord->timemodified);
++						$feedback->timeclose = strtotime("+14 days", $feedback->timeopen);
++					}
++					if($i==1){
++						$feedback->name  = "Second Student Feedback"."(".$username->firstname." ".$username->lastname.")";;
++						$feedback->intro = "Second Student Feedback";
++						$feedback->timeopen = strtotime("+60 days", $courserecord->timemodified);
++						$feedback->timeclose = strtotime("+14 days", $feedback->timeopen);
++					}
++					$feedback->introformat = 1;
++					$feedback->anonymous = 1;
++					$feedback->email_notification = 0;
++					$feedback->multiple_submit = 0;
++					$feedback->autonumbering = 1;
++					$feedback->site_after_submit = "";
++					$feedback->page_after_submit = "<p>Thankyou for your feedback!!!</p>";
++					$feedback->page_after_submitformat = 1;
++					$feedback->publish_stats = 0;
++					$feedback->completionsubmit = 0;
++					$feedbackid = $DB->insert_record("feedback", $feedback);
++					$feedback->id = $feedbackid;
++					$xmlcontent = file_get_contents($CFG->dirroot.'/feedback.xml', true);
++
++					if(!$xmldata = feedback_load_xml_datap($xmlcontent)) {
++						print_error('cannotloadxml', 'feedback', 'edit.php?id='.$id);
++					}
++
++					$importerror = feedback_import_loaded_datap($xmldata, $feedback->id);
++
++					if (! $module = $DB->get_record("modules", array("name" => "feedback"))) {
++						echo $OUTPUT->notification("Could not find feedback module!!");
++						return false;
++					}
++					$mod = new stdClass();
++					$mod->course = $course->id;
++					$mod->module = $module->id;
++					$mod->instance = $feedback->id;
++					$mod->section = 0;
++
++					if (! $mod->coursemodule = add_course_module($mod) ) {   // assumes course/lib.php is loaded
++						echo $OUTPUT->notification("Could not add a new course module to the course '" . $courseid . "'");
++						return false;
++					}
++					if (! $sectionid = add_mod_to_section($mod) ) {   // assumes course/lib.php is loaded
++						echo $OUTPUT->notification("Could not add the new course module to that section");
++						return false;
++					}
++					$DB->set_field("course_modules", "section", $sectionid, array("id" => $mod->coursemodule));
++					include_once("$CFG->dirroot/course/lib.php");
++					rebuild_course_cache($course->id);
++				}
++			}      
+ }
+ 
+         $potentialuserselector->invalidate_selected_users();
